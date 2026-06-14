@@ -679,7 +679,8 @@ canvas { display: block; width: 100% !important; }
 // Exemplo: https://docs.google.com/spreadsheets/d/e/XXXXX/pub?gid=YYYYYY&single=true&output=csv
 // ⚠️  URL DO GOOGLE APPS SCRIPT (proxy sem CORS)
 // Para trocar a fonte de dados, atualize apenas esta linha.
-const CSV_URL = "https://script.google.com/a/macros/mercadolivre.com/s/AKfycbxQwXuB84JXH6Hle9NYoenmNZjPfWR1b6JQiEdnpgD3A3hHSLsBCdfepRwiytNv4Ek0eQ/exec";
+// ⚠️  LINK DO CSV DA PLANILHA — edite apenas esta linha ⚠️
+const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRRW5zpe5yK1iSipxEFVjZXS1ptlTlwQqrWoHiJV1Pw79TSimg8RTVs8ZHd9S0B3QNYUcx1C52-RsSI/pub?gid=626644473&single=true&output=csv";
 
 /* ==============================================================
    ESTADO GLOBAL
@@ -826,17 +827,29 @@ async function loadData() {
     <p>Buscando informações da planilha. Isso pode levar alguns segundos.</p>`;
 
   try {
-    // Apps Script resolve o CORS — fetch direto
-    const urlBase = CSV_URL + "?_t=" + Date.now();
-    let resp;
-    try {
-      resp = await fetch(urlBase, { cache: "no-store" });
-    } catch(e) {
-      throw new Error("Falha na conexão. Verifique se o Apps Script está publicado para Qualquer pessoa.");
-    }
-    if (!resp.ok) throw new Error(`HTTP ${resp.status} — ${resp.statusText}`);
+    // Carrega CSV via múltiplos proxies públicos para contornar CORS
+    const proxies = [
+      `https://api.allorigins.win/raw?url=${encodeURIComponent(CSV_URL)}&nocache=${Date.now()}`,
+      `https://corsproxy.io/?${encodeURIComponent(CSV_URL)}`,
+      `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(CSV_URL)}`,
+    ];
 
-    const text = await resp.text();
+    let text = null;
+    let lastError = "";
+    for (const proxyUrl of proxies) {
+      try {
+        const r = await fetch(proxyUrl, { cache: "no-store" });
+        if (r.ok) {
+          const t = await r.text();
+          // Verifica se retornou CSV válido (tem pelo menos uma vírgula ou ponto-e-vírgula)
+          if (t && (t.includes(",") || t.includes(";")) && t.length > 50) {
+            text = t;
+            break;
+          }
+        }
+      } catch(e) { lastError = e.message; }
+    }
+    if (!text) throw new Error("Todos os proxies falharam. " + lastError);
     const { records } = parseCSV(text);
 
     // Valida colunas obrigatórias
