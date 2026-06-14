@@ -896,11 +896,18 @@ async function processCSVText(csvText, fileName) {
     Object.entries(REQUIRED_COLS).forEach(([key, label]) => {
       if (!(key in firstRow)) missingCols.push(label);
     });
-
     if (missingCols.length) {
-      // Aviso mas não bloqueia — pode ter nomes ligeiramente diferentes
-      console.warn("Colunas não encontradas (verifique nomes):", missingCols);
+      console.warn("Colunas não encontradas:", missingCols);
     }
+
+    // DEBUG: mostra no console os valores únicos da coluna etapa
+    const etapaVals = {};
+    records.forEach(r => {
+      const v = (r["etapadecontratacao"] || r["etapa"] || "").trim();
+      etapaVals[v] = (etapaVals[v] || 0) + 1;
+    });
+    console.log("=== ETAPA DE CONTRATAÇÃO — valores encontrados ===", etapaVals);
+    console.log("Total de registros:", records.length);
 
     // Converte datas e normaliza campos numéricos
     rawData = records.map(r => ({
