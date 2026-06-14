@@ -677,7 +677,9 @@ canvas { display: block; width: 100% !important; }
 // ⚠️  INSIRA O LINK DO CSV AQUI  ⚠️
 // Cole a URL de publicação da planilha Google Sheets no formato CSV.
 // Exemplo: https://docs.google.com/spreadsheets/d/e/XXXXX/pub?gid=YYYYYY&single=true&output=csv
-const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRRW5zpe5yK1iSipxEFVjZXS1ptlTlwQqrWoHiJV1Pw79TSimg8RTVs8ZHd9S0B3QNYUcx1C52-RsSI/pub?gid=626644473&single=true&output=csv";
+// ⚠️  URL DO GOOGLE APPS SCRIPT (proxy sem CORS)
+// Para trocar a fonte de dados, atualize apenas esta linha.
+const CSV_URL = "https://script.google.com/a/macros/mercadolivre.com/s/AKfycbxQwXuB84JXH6Hle9NYoenmNZjPfWR1b6JQiEdnpgD3A3hHSLsBCdfepRwiytNv4Ek0eQ/exec";
 
 /* ==============================================================
    ESTADO GLOBAL
@@ -824,32 +826,15 @@ async function loadData() {
     <p>Buscando informações da planilha. Isso pode levar alguns segundos.</p>`;
 
   try {
-    // Estratégia anti-CORS: tenta buscar direto primeiro,
-    // depois cai para proxies públicos se falhar.
-    const urlBase = CSV_URL + (CSV_URL.includes("?") ? "&" : "?") + "_t=" + Date.now();
-
-    // Lista de estratégias de fetch em ordem de preferência
-    const strategies = [
-      // 1. Direto (funciona quando rodando localmente ou sem restrição CORS)
-      () => fetch(urlBase, { cache: "no-store" }),
-      // 2. allorigins.win — proxy confiável que retorna o conteúdo em JSON
-      () => fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(CSV_URL)}&t=${Date.now()}`, { cache: "no-store" }),
-      // 3. corsproxy.io
-      () => fetch(`https://corsproxy.io/?${encodeURIComponent(CSV_URL)}&t=${Date.now()}`, { cache: "no-store" }),
-    ];
-
-    let resp = null;
-    let lastErr = null;
-    for (const strategy of strategies) {
-      try {
-        resp = await strategy();
-        if (resp.ok) break;
-      } catch (e) {
-        lastErr = e;
-        resp = null;
-      }
+    // Apps Script resolve o CORS — fetch direto
+    const urlBase = CSV_URL + "?_t=" + Date.now();
+    let resp;
+    try {
+      resp = await fetch(urlBase, { cache: "no-store" });
+    } catch(e) {
+      throw new Error("Falha na conexão. Verifique se o Apps Script está publicado para Qualquer pessoa.");
     }
-    if (!resp || !resp.ok) throw new Error(lastErr?.message || "Não foi possível buscar o CSV após múltiplas tentativas.");
+    if (!resp.ok) throw new Error(`HTTP ${resp.status} — ${resp.statusText}`);
 
     const text = await resp.text();
     const { records } = parseCSV(text);
